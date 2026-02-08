@@ -3,9 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
-import HomeScreen from '../screens/HomeScreen';
 import WorkoutLogScreen from '../screens/WorkoutLogScreen';
-import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
+import BottomTabNavigator from './BottomTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,32 +39,20 @@ export default function AppNavigator() {
             },
           }}
         />
+        {/* Main app with bottom tabs */}
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
+          name="Main"
+          component={BottomTabNavigator}
           options={{
-            title: 'Fitness RPG',
-            headerLeft: () => null,
-            headerStyle: {
-              backgroundColor: '#667eea',
-            },
+            headerShown: false,
           }}
         />
+        {/* Workout log is a modal-style screen */}
         <Stack.Screen
           name="WorkoutLog"
           component={WorkoutLogScreen}
           options={{
             title: 'Log Workout',
-            headerStyle: {
-              backgroundColor: '#667eea',
-            },
-          }}
-        />
-        <Stack.Screen
-          name="WorkoutHistory"
-          component={WorkoutHistoryScreen}
-          options={{
-            title: 'History',
             headerStyle: {
               backgroundColor: '#667eea',
             },

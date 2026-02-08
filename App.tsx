@@ -11,6 +11,9 @@ export default function App() {
     const initializeApp = async () => {
       try {
         await DatabaseService.initDatabase();
+        await DatabaseService.initNutritionTables(); 
+        await DatabaseService.populateInitialFoods(); 
+        await DatabaseService.setDefaultNutritionGoals('demo-user'); 
         setIsDbReady(true);
       } catch (error) {
         console.error('Failed to initialize database:', error);

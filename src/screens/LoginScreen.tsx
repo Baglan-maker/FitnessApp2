@@ -30,7 +30,7 @@ export default function LoginScreen({ navigation }: any) {
       setIsLoading(false);
       Alert.alert('Success', 'Login successful! (Demo mode)');
       // Navigate to home after login
-      navigation.replace('Home');
+      navigation.replace('Main');
     }, 1000);
   };
 

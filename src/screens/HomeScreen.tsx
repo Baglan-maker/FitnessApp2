@@ -41,6 +41,10 @@ export default function HomeScreen({ navigation }: any) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
+        <View style={styles.topBar}>
+          <Text style={styles.appTitle}>Fitness RPG</Text>
+        </View>
+
         <View style={styles.header}>
           <Text style={styles.welcomeText}>Welcome, Warrior!</Text>
           <Text style={styles.levelText}>Level 1 • {totalWorkouts * 50} XP</Text>
@@ -65,7 +69,7 @@ export default function HomeScreen({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.mainButton}
-          onPress={() => navigation.navigate('WorkoutLog')}
+          onPress={() => navigation.getParent()?.navigate('WorkoutLog')}
         >
           <LinearGradient
             colors={['#f093fb', '#f5576c']}
@@ -80,7 +84,7 @@ export default function HomeScreen({ navigation }: any) {
         {/* View History Button */}
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.navigate('WorkoutHistory')}
+          onPress={() => navigation.navigate('WorkoutsTab')}
         >
           <Text style={styles.secondaryButtonText}>📊 View History</Text>
         </TouchableOpacity>
@@ -215,5 +219,17 @@ const styles = StyleSheet.create({
     color: '#ffd700',
     marginTop: 4,
     fontWeight: 'bold',
+  },
+  topBar: {
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  appTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });

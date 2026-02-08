@@ -163,6 +163,9 @@ export default function WorkoutHistoryScreen({ navigation }: any) {
         colors={['#0f0f1e', '#1a1a2e']}
         style={styles.gradient}
       >
+        <View style={styles.topBar}>
+        <Text style={styles.appTitle}>Workout History</Text>
+      </View>
         {/* Header Stats */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Workout History</Text>
@@ -194,21 +197,6 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -351,5 +339,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  topBar: {
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#667eea',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  appTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#999',
   },
 });
