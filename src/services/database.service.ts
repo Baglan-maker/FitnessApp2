@@ -519,6 +519,128 @@ async getDailyNutritionSummary(userId: string, date: string): Promise<any> {
       throw error;
     }
   }
+
+  // Search foods in database (English only for now)
+async searchFoods(query: string): Promise<any[]> {
+  try {
+    const searchTerm = `%${query.toLowerCase()}%`;
+    
+    const results = await db.getAllAsync<any>(
+      `SELECT * FROM foods 
+       WHERE LOWER(name_en) LIKE ?
+       ORDER BY name_en
+       LIMIT 50`,
+      [searchTerm]
+    );
+
+    console.log(`✅ Found ${results.length} foods for "${query}"`);
+    return results;
+  } catch (error) {
+    console.error('❌ Error searching foods:', error);
+    return [];
+  }
+}
+
+// Add food to nutrition log
+async addFoodLog(
+  userId: string,
+  foodId: string,
+  foodName: string,
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  servings: number,
+  calories: number,
+  protein: number,
+  carbs: number,
+  fats: number
+) {
+  try {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+
+    await db.runAsync(
+      `INSERT INTO nutrition_logs (id, user_id, food_id, food_name, meal_type, servings, calories, protein, carbs, fats, logged_at, date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Date.now().toString(),
+        userId,
+        foodId,
+        foodName,
+        mealType,
+        servings,
+        calories * servings,
+        protein * servings,
+        carbs * servings,
+        fats * servings,
+        now.toISOString(),
+        date,
+      ]
+    );
+
+    console.log(`✅ Added ${foodName} to ${mealType}`);
+  } catch (error) {
+    console.error('❌ Error adding food log:', error);
+    throw error;
+  }
+}
+
+// Get recent foods for quick access
+async getRecentFoods(userId: string, limit: number = 10): Promise<any[]> {
+  try {
+    const results = await db.getAllAsync<any>(
+      `SELECT DISTINCT food_id, food_name, foods.* 
+       FROM nutrition_logs 
+       JOIN foods ON nutrition_logs.food_id = foods.id
+       WHERE nutrition_logs.user_id = ?
+       ORDER BY nutrition_logs.logged_at DESC
+       LIMIT ?`,
+      [userId, limit]
+    );
+
+    return results;
+  } catch (error) {
+    console.error('❌ Error getting recent foods:', error);
+    return [];
+  }
+}
+
+// Delete a food log entry
+async deleteFoodLog(logId: string): Promise<void> {
+  try {
+    await db.runAsync('DELETE FROM nutrition_logs WHERE id = ?', [logId]);
+    console.log('✅ Food log deleted');
+  } catch (error) {
+    console.error('❌ Error deleting food log:', error);
+    throw error;
+  }
+}
+
+// Get nutrition data for a specific date (for testing/history)
+async getNutritionForDate(userId: string, date: string): Promise<any> {
+  try {
+    const summary = await this.getDailyNutritionSummary(userId, date);
+    const meals = await this.getMealLogs(userId, date);
+    
+    return { summary, meals };
+  } catch (error) {
+    console.error('❌ Error getting nutrition for date:', error);
+    throw error;
+  }
+}
+
+// Check if user has logged anything today
+async hasLoggedToday(userId: string): Promise<boolean> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const result = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM nutrition_logs WHERE user_id = ? AND date = ?',
+      [userId, today]
+    );
+    return (result?.count || 0) > 0;
+  } catch (error) {
+    console.error('❌ Error checking today logs:', error);
+    return false;
+  }
+}
 }
 
 // Export a single instance (singleton pattern)
