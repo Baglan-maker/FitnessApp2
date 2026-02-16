@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import DatabaseService from '../services/database.service';
+import { SearchIcon, CloseIcon, AppleIcon } from '../components/Icons';
+import { colors, borderRadius, spacing } from '../styles/theme'; 
 
 interface FoodSearchScreenProps {
   navigation: any;
@@ -104,11 +106,11 @@ export default function FoodSearchScreen({ navigation, route }: FoodSearchScreen
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <SearchIcon size={20} color={colors.text.tertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search foods... (e.g., chicken, apple, rice)"
-            placeholderTextColor="#999"
+            placeholder="Search foods..."
+            placeholderTextColor={colors.text.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus
@@ -118,7 +120,7 @@ export default function FoodSearchScreen({ navigation, route }: FoodSearchScreen
               onPress={() => setSearchQuery('')}
               style={styles.clearButton}
             >
-              <Text style={styles.clearButtonText}>✕</Text>
+              <CloseIcon size={18} color={colors.text.tertiary} />
             </TouchableOpacity>
           )}
         </View>
@@ -181,34 +183,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f0f1e',
   },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
+  // Update these styles
+header: {
+  paddingTop: 60,
+  paddingBottom: spacing.lg,
+  paddingHorizontal: spacing.xl,
+},
+headerTitle: {
+  fontSize: 22,
+  fontWeight: 'bold',
+  color: '#FFFFFF',
+  marginBottom: spacing.md,
+  letterSpacing: 0.5,
+},
+searchContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: colors.background.tertiary,
+  borderRadius: borderRadius.md,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.xs,
+  borderWidth: 1,
+  borderColor: colors.glass.border,
+},
+searchInput: {
+  flex: 1,
+  fontSize: 15,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.sm,
+  color: colors.text.primary,
+},
   searchIcon: {
     fontSize: 20,
     marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 12,
-    color: '#000',
   },
   clearButton: {
     padding: 4,

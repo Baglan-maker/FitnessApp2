@@ -1,22 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import NutritionDashboardScreen from '../screens/NutritionDashboardScreen';
 import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
+import { DumbbellIcon, AppleIcon, StatsIcon } from '../components/Icons';
+import { colors, borderRadius } from '../styles/theme';
 
 const Tab = createBottomTabNavigator();
-
-// Custom tab bar icon component
-const TabIcon = ({ focused, emoji }: { focused: boolean; emoji: string }) => {
-  return (
-    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-      <Text style={[styles.iconEmoji, focused && styles.iconEmojiActive]}>
-        {emoji}
-      </Text>
-    </View>
-  );
-};
 
 export default function BottomTabNavigator() {
   return (
@@ -24,8 +15,8 @@ export default function BottomTabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#667eea',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: colors.accent.primary,
+        tabBarInactiveTintColor: colors.text.tertiary,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarItemStyle: styles.tabBarItem,
       }}
@@ -35,8 +26,10 @@ export default function BottomTabNavigator() {
         component={HomeScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} emoji="🏠" />
+          tabBarIcon: ({ focused, color }) => (
+            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+              <DumbbellIcon size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -45,8 +38,10 @@ export default function BottomTabNavigator() {
         component={NutritionDashboardScreen}
         options={{
           tabBarLabel: 'Nutrition',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} emoji="🍎" />
+          tabBarIcon: ({ focused, color }) => (
+            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+              <AppleIcon size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -54,9 +49,11 @@ export default function BottomTabNavigator() {
         name="WorkoutsTab"
         component={WorkoutHistoryScreen}
         options={{
-          tabBarLabel: 'Workouts',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} emoji="💪" />
+          tabBarLabel: 'History',
+          tabBarIcon: ({ focused, color }) => (
+            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+              <StatsIcon size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -66,9 +63,9 @@ export default function BottomTabNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background.secondary,
     borderTopWidth: 1,
-    borderTopColor: '#2a2a3e',
+    borderTopColor: colors.glass.border,
     height: 65,
     paddingBottom: 8,
     paddingTop: 8,
@@ -82,22 +79,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   iconContainerActive: {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
-  },
-  iconEmoji: {
-    fontSize: 24,
-    opacity: 0.6,
-  },
-  iconEmojiActive: {
-    opacity: 1,
-    transform: [{ scale: 1.1 }],
+    backgroundColor: colors.glass.white,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,22 @@ import {
   ScrollView,
   Alert,
   Modal,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Exercise, Set, Workout } from '../types/workout.types';
 import DatabaseService from '../services/database.service';
+import GlassCard from '../components/GlassCard';
+import { 
+  PlusIcon, 
+  CloseIcon, 
+  CheckIcon, 
+  FireIcon,
+  TrophyIcon,
+  LightningIcon,
+  DumbbellIcon,
+} from '../components/Icons';
+import { Exercise, Set, Workout } from '../types/workout.types';
+import { colors, borderRadius, spacing, shadows } from '../styles/theme';
 
 export default function WorkoutLogScreen({ navigation }: any) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -19,15 +31,38 @@ export default function WorkoutLogScreen({ navigation }: any) {
   const [currentExerciseName, setCurrentExerciseName] = useState('');
   const [workoutStartTime] = useState(new Date().toISOString());
   const [xpEarned, setXpEarned] = useState(0);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState({ oldLevel: 0, newLevel: 0 });
 
-  // Popular exercises for quick selection
+  // Animation values
+  const xpPulse = useRef(new Animated.Value(1)).current;
+  const levelUpScale = useRef(new Animated.Value(0)).current;
+  const levelUpOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (xpEarned > 0) {
+      Animated.sequence([
+        Animated.timing(xpPulse, {
+          toValue: 1.2,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(xpPulse, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [xpEarned]);
+
   const popularExercises = [
-    { name: 'Bench Press', type: 'strength' as const, icon: '💪' },
-    { name: 'Squat', type: 'strength' as const, icon: '🦵' },
-    { name: 'Deadlift', type: 'strength' as const, icon: '🏋️' },
-    { name: 'Pull-ups', type: 'strength' as const, icon: '🔥' },
-    { name: 'Running', type: 'cardio' as const, icon: '🏃' },
-    { name: 'Push-ups', type: 'strength' as const, icon: '⚡' },
+    { name: 'Bench Press', type: 'strength' as const },
+    { name: 'Squat', type: 'strength' as const },
+    { name: 'Deadlift', type: 'strength' as const },
+    { name: 'Pull-ups', type: 'strength' as const },
+    { name: 'Running', type: 'cardio' as const },
+    { name: 'Push-ups', type: 'strength' as const },
   ];
 
   const addExercise = (name: string, type: 'strength' | 'cardio' | 'flexibility') => {
@@ -101,7 +136,6 @@ export default function WorkoutLogScreen({ navigation }: any) {
       )
     );
     
-    // Add XP for completing a set
     setXpEarned((prev) => prev + 10);
   };
 
@@ -109,53 +143,124 @@ export default function WorkoutLogScreen({ navigation }: any) {
     setExercises(exercises.filter((ex) => ex.id !== exerciseId));
   };
 
+  const getLevel = (workouts: number) => {
+    if (workouts < 5) return 0;
+    if (workouts < 15) return 1;
+    if (workouts < 30) return 2;
+    if (workouts < 50) return 3;
+    if (workouts < 75) return 4;
+    return 5;
+  };
+
+  const checkLevelUp = async () => {
+    const userId = 'demo-user';
+    const totalWorkouts = await DatabaseService.getWorkoutCount(userId);
+    
+    const oldLevel = getLevel(totalWorkouts);
+    const newLevel = getLevel(totalWorkouts + 1);
+
+    if (newLevel > oldLevel) {
+      setLevelUpData({ oldLevel, newLevel });
+      setShowLevelUp(true);
+      
+      // Animate level up
+      Animated.parallel([
+        Animated.spring(levelUpScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(levelUpOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    return newLevel > oldLevel;
+  };
+
   const saveWorkout = async () => {
     if (exercises.length === 0) {
-      Alert.alert('No Exercises', 'Add at least one exercise to save workout');
+      Alert.alert('No Exercises', 'Add at least one exercise');
       return;
     }
-  
+
     const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     const completedSets = exercises.reduce(
       (sum, ex) => sum + ex.sets.filter((s) => s.completed).length,
       0
     );
-  
+
     try {
       // Create workout object
       const workout: Workout = {
         id: Date.now().toString(),
-        userId: 'demo-user', // TODO: Replace with actual user ID from auth
+        userId: 'demo-user',
         exercises: exercises,
         startTime: workoutStartTime,
         endTime: new Date().toISOString(),
         xpEarned: xpEarned,
       };
-  
+
       // Save to database
       await DatabaseService.saveWorkout(workout);
-  
-      Alert.alert(
-        '🎉 Workout Saved!',
-        `You earned ${xpEarned} XP!\n\nCompleted ${completedSets}/${totalSets} sets\n${exercises.length} exercises`,
-        [
-          {
-            text: 'Awesome!',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+
+      // Check for level up
+      const didLevelUp = await checkLevelUp();
+
+      if (!didLevelUp) {
+        Alert.alert(
+          '🎉 Workout Complete!',
+          `You earned ${xpEarned} XP!\n\n${completedSets}/${totalSets} sets completed\n${exercises.length} exercises`,
+          [
+            {
+              text: 'Awesome!',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save workout. Please try again.');
+      Alert.alert('Error', 'Failed to save workout');
       console.error('Save workout error:', error);
     }
   };
-  
+
+  const closeLevelUpModal = () => {
+    Animated.parallel([
+      Animated.timing(levelUpScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(levelUpOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowLevelUp(false);
+      levelUpScale.setValue(0);
+      levelUpOpacity.setValue(0);
+      navigation.navigate('Main', { screen: 'HomeTab' });
+    });
+  };
+
+  const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+  const completedSets = exercises.reduce(
+    (sum, ex) => sum + ex.sets.filter((s) => s.completed).length,
+    0
+  );
+  const completionRate = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
+
   return (
     <View style={styles.container}>
-      {/* Header with XP Counter */}
+      {/* Header */}
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={[colors.accent.primary, colors.accent.secondary]}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -164,36 +269,68 @@ export default function WorkoutLogScreen({ navigation }: any) {
           <View>
             <Text style={styles.headerTitle}>Active Workout</Text>
             <Text style={styles.headerSubtitle}>
-              {exercises.length} exercises
+              {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
             </Text>
           </View>
-          <View style={styles.xpBadge}>
-            <Text style={styles.xpText}>⚡ {xpEarned} XP</Text>
-          </View>
+          
+          <Animated.View 
+            style={[
+              styles.xpBadge,
+              { transform: [{ scale: xpPulse }] }
+            ]}
+          >
+            <LightningIcon size={16} color="#FFFFFF" />
+            <Text style={styles.xpText}>{xpEarned} XP</Text>
+          </Animated.View>
         </View>
+
+        {/* Progress Bar */}
+        {totalSets > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <LinearGradient
+                colors={['#FFFFFF', 'rgba(255,255,255,0.7)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.progressFill, { width: `${completionRate}%` }]}
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {completedSets}/{totalSets} sets • {Math.round(completionRate)}%
+            </Text>
+          </View>
+        )}
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Exercise List */}
+        {/* Exercise Cards */}
         {exercises.map((exercise, index) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
+          <GlassCard key={exercise.id} gradient style={styles.exerciseCard}>
             <View style={styles.exerciseHeader}>
-              <View>
-                <Text style={styles.exerciseNumber}>Exercise #{index + 1}</Text>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
+              <View style={styles.exerciseTitleRow}>
+                <View style={styles.exerciseNumber}>
+                  <Text style={styles.exerciseNumberText}>{index + 1}</Text>
+                </View>
+                <View>
+                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={styles.exerciseType}>{exercise.exerciseType}</Text>
+                </View>
               </View>
+              
               <TouchableOpacity
                 onPress={() => deleteExercise(exercise.id)}
-                style={styles.deleteButton}
+                style={styles.deleteIconButton}
               >
-                <Text style={styles.deleteButtonText}>🗑️</Text>
+                <CloseIcon size={18} color={colors.text.tertiary} />
               </TouchableOpacity>
             </View>
 
             {/* Sets */}
             {exercise.sets.map((set, setIndex) => (
               <View key={set.id} style={styles.setRow}>
-                <Text style={styles.setNumber}>Set {setIndex + 1}</Text>
+                <View style={styles.setNumberBadge}>
+                  <Text style={styles.setNumberText}>{setIndex + 1}</Text>
+                </View>
                 
                 <TextInput
                   style={styles.setInput}
@@ -203,7 +340,7 @@ export default function WorkoutLogScreen({ navigation }: any) {
                   onChangeText={(val) =>
                     updateSet(exercise.id, set.id, 'reps', val)
                   }
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.text.tertiary}
                 />
 
                 <TextInput
@@ -214,7 +351,7 @@ export default function WorkoutLogScreen({ navigation }: any) {
                   onChangeText={(val) =>
                     updateSet(exercise.id, set.id, 'weight', val)
                   }
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.text.tertiary}
                 />
 
                 <TouchableOpacity
@@ -224,9 +361,7 @@ export default function WorkoutLogScreen({ navigation }: any) {
                   ]}
                   onPress={() => toggleSetComplete(exercise.id, set.id)}
                 >
-                  <Text style={styles.checkButtonText}>
-                    {set.completed ? '✓' : '○'}
-                  </Text>
+                  {set.completed && <CheckIcon size={16} color="#FFFFFF" />}
                 </TouchableOpacity>
               </View>
             ))}
@@ -236,14 +371,15 @@ export default function WorkoutLogScreen({ navigation }: any) {
               style={styles.addSetButton}
               onPress={() => addSet(exercise.id)}
             >
-              <Text style={styles.addSetButtonText}>+ Add Set</Text>
+              <PlusIcon size={16} color={colors.accent.primary} />
+              <Text style={styles.addSetButtonText}>Add Set</Text>
             </TouchableOpacity>
-          </View>
+          </GlassCard>
         ))}
 
-        {/* Quick Add Exercise Buttons */}
+        {/* Quick Add Section */}
         <View style={styles.quickAddSection}>
-          <Text style={styles.sectionTitle}>Quick Add Exercise</Text>
+          <Text style={styles.sectionTitle}>Quick Add</Text>
           <View style={styles.quickAddGrid}>
             {popularExercises.map((ex) => (
               <TouchableOpacity
@@ -251,7 +387,9 @@ export default function WorkoutLogScreen({ navigation }: any) {
                 style={styles.quickAddCard}
                 onPress={() => addExercise(ex.name, ex.type)}
               >
-                <Text style={styles.quickAddIcon}>{ex.icon}</Text>
+                <View style={styles.quickAddIcon}>
+                  <DumbbellIcon size={24} color={colors.accent.primary} />
+                </View>
                 <Text style={styles.quickAddText}>{ex.name}</Text>
               </TouchableOpacity>
             ))}
@@ -260,22 +398,26 @@ export default function WorkoutLogScreen({ navigation }: any) {
 
         {/* Custom Exercise Button */}
         <TouchableOpacity
-          style={styles.customExerciseButton}
+          style={styles.customButton}
           onPress={() => setShowAddExercise(true)}
         >
-          <Text style={styles.customExerciseText}>➕ Add Custom Exercise</Text>
+          <GlassCard gradient style={styles.customButtonCard}>
+            <PlusIcon size={20} color={colors.accent.primary} />
+            <Text style={styles.customButtonText}>Custom Exercise</Text>
+          </GlassCard>
         </TouchableOpacity>
 
-        {/* Save Workout Button */}
+        {/* Save Button */}
         {exercises.length > 0 && (
           <TouchableOpacity style={styles.saveButton} onPress={saveWorkout}>
             <LinearGradient
-              colors={['#f093fb', '#f5576c']}
+              colors={[colors.accent.success, colors.accent.tertiary]}
               style={styles.saveButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.saveButtonText}>🏆 Complete Workout</Text>
+              <TrophyIcon size={20} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Complete Workout</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -291,12 +433,13 @@ export default function WorkoutLogScreen({ navigation }: any) {
         onRequestClose={() => setShowAddExercise(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <GlassCard gradient style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Custom Exercise</Text>
             
             <TextInput
               style={styles.modalInput}
-              placeholder="Exercise name (e.g., Bicep Curls)"
+              placeholder="Exercise name"
+              placeholderTextColor={colors.text.tertiary}
               value={currentExerciseName}
               onChangeText={setCurrentExerciseName}
               autoFocus
@@ -321,13 +464,79 @@ export default function WorkoutLogScreen({ navigation }: any) {
                   }
                 }}
               >
-                <Text style={[styles.modalButtonText, { color: '#fff' }]}>
-                  Add
-                </Text>
+                <LinearGradient
+                  colors={[colors.accent.primary, colors.accent.secondary]}
+                  style={styles.modalButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
+                    Add
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
-          </View>
+          </GlassCard>
         </View>
+      </Modal>
+
+      {/* Level Up Modal */}
+      <Modal
+        visible={showLevelUp}
+        transparent
+        animationType="none"
+      >
+        <Animated.View 
+          style={[
+            styles.levelUpOverlay,
+            { opacity: levelUpOpacity }
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.levelUpContent,
+              { 
+                transform: [
+                  { scale: levelUpScale },
+                  { 
+                    rotate: levelUpScale.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['180deg', '0deg'],
+                    })
+                  }
+                ]
+              }
+            ]}
+          >
+            <LinearGradient
+              colors={[colors.accent.warning, colors.accent.primary]}
+              style={styles.levelUpGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <TrophyIcon size={64} color="#FFFFFF" />
+              <Text style={styles.levelUpTitle}>LEVEL UP!</Text>
+              <Text style={styles.levelUpSubtitle}>
+                Level {levelUpData.oldLevel} → Level {levelUpData.newLevel}
+              </Text>
+              <Text style={styles.levelUpDescription}>
+                Your character is getting stronger! 💪
+              </Text>
+              
+              <View style={styles.xpEarnedBadge}>
+                <LightningIcon size={24} color={colors.accent.warning} />
+                <Text style={styles.xpEarnedText}>+{xpEarned} XP</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.levelUpButton}
+                onPress={closeLevelUpModal}
+              >
+                <Text style={styles.levelUpButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </View>
   );
@@ -336,248 +545,353 @@ export default function WorkoutLogScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1e',
+    backgroundColor: colors.background.primary,
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.md,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#e0e0ff',
-    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
   xpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
   xpText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: 'bold',
+  },
+  progressContainer: {
+    gap: spacing.xs,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
+  },
+  progressText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   exerciseCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#2a2a3e',
+    marginTop: spacing.lg,
   },
   exerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
+  },
+  exerciseTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   exerciseNumber: {
-    fontSize: 12,
-    color: '#667eea',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  exerciseName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 4,
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.accent.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteButtonText: {
-    fontSize: 20,
+  exerciseNumberText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.accent.primary,
+  },
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  exerciseType: {
+    fontSize: 11,
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  deleteIconButton: {
+    padding: spacing.xs,
   },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
-  setNumber: {
-    color: '#999',
-    fontSize: 14,
-    width: 50,
+  setNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.xs,
+    backgroundColor: colors.glass.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setNumberText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text.secondary,
   },
   setInput: {
     flex: 1,
-    backgroundColor: '#0f0f1e',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#fff',
-    fontSize: 16,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.text.primary,
+    fontSize: 14,
     borderWidth: 1,
-    borderColor: '#2a2a3e',
+    borderColor: colors.glass.border,
   },
   checkButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2a2a3e',
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.glass.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#3a3a4e',
+    borderColor: colors.glass.border,
   },
   checkButtonComplete: {
-    backgroundColor: '#667eea',
-    borderColor: '#667eea',
-  },
-  checkButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    backgroundColor: colors.accent.success,
+    borderColor: colors.accent.success,
   },
   addSetButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#667eea',
-    borderStyle: 'dashed',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.accent.primary,
+    borderStyle: 'dashed',
+    marginTop: spacing.xs,
   },
   addSetButtonText: {
-    color: '#667eea',
-    fontSize: 14,
+    color: colors.accent.primary,
+    fontSize: 13,
     fontWeight: '600',
   },
   quickAddSection: {
-    marginTop: 24,
+    marginTop: spacing.xxl,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
   quickAddGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.sm,
   },
   quickAddCard: {
     width: '31%',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 12,
+    aspectRatio: 1,
+    backgroundColor: colors.glass.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2a2a3e',
+    borderColor: colors.glass.border,
   },
   quickAddIcon: {
-    fontSize: 28,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   quickAddText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 11,
     textAlign: 'center',
     fontWeight: '600',
   },
-  customExerciseButton: {
-    marginTop: 16,
-    paddingVertical: 16,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#667eea',
+  customButton: {
+    marginTop: spacing.lg,
   },
-  customExerciseText: {
-    color: '#667eea',
-    fontSize: 16,
+  customButtonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+  },
+  customButtonText: {
+    color: colors.accent.primary,
+    fontSize: 15,
     fontWeight: '600',
   },
   saveButton: {
-    marginTop: 24,
-    borderRadius: 16,
+    marginTop: spacing.xxl,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    ...shadows.lg,
   },
   saveButtonGradient: {
-    paddingVertical: 18,
+    flexDirection: 'row',
+    paddingVertical: spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
   modalContent: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 20,
-    padding: 24,
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#2a2a3e',
+    padding: spacing.xxl,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
   modalInput: {
-    backgroundColor: '#0f0f1e',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#fff',
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: 15,
+    color: colors.text.primary,
     borderWidth: 1,
-    borderColor: '#2a2a3e',
-    marginBottom: 20,
+    borderColor: colors.glass.border,
+    marginBottom: spacing.lg,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
   },
   modalButtonCancel: {
-    backgroundColor: '#2a2a3e',
+    backgroundColor: colors.glass.white,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
   modalButtonAdd: {
-    backgroundColor: '#667eea',
+    overflow: 'hidden',
+  },
+  modalButtonGradient: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.text.primary,
+  },
+  levelUpOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  levelUpContent: {
+    width: '85%',
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+  },
+  levelUpGradient: {
+    padding: spacing.xxxl,
+    alignItems: 'center',
+  },
+  levelUpTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: spacing.lg,
+    letterSpacing: 2,
+  },
+  levelUpSubtitle: {
+    fontSize: 20,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: spacing.sm,
+    fontWeight: '600',
+  },
+  levelUpDescription: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  xpEarnedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.xxl,
+  },
+  xpEarnedText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  levelUpButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.xxl,
+  },
+  levelUpButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.accent.primary,
+    letterSpacing: 1,
   },
 });
